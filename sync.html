@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>WBS Excel 동기화 (구조 갱신용)</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 680px; margin: 60px auto; padding: 0 20px; color: #0b0b0b; }
+  button { font-size: 15px; padding: 10px 18px; border-radius: 8px; border: 1px solid #c3c2b7; background: #2a78d6; color: white; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  #log { margin-top: 20px; font-size: 13px; white-space: pre-wrap; background: #f9f9f7; border: 1px solid #e1e0d9; border-radius: 8px; padding: 14px; max-height: 460px; overflow-y: auto; }
+  ul { font-size: 13px; }
+</style>
+</head>
+<body>
+  <h1>WBS Excel 구조 동기화</h1>
+  <p>새 Excel에서 다시 추출한 <code>seed-data.json</code>을 기준으로 Firestore(<code>wbsTasks</code>)를 동기화합니다.
+  seed.html과 달리 <b>진척률/체크박스/상태처럼 팀원이 이미 입력한 값은 건드리지 않고</b>, 아래만 처리합니다.</p>
+  <ul>
+    <li>새 Excel에만 있는 WBS-ID → 새 과제로 추가</li>
+    <li>기존에도 있던 WBS-ID → 과제명/담당자/가중치/대분류 등 <b>구조 정보만</b> 최신값으로 갱신</li>
+    <li>시작일/종료일이 <b>비어있는 과제에 한해서만</b> Excel 값으로 채움 — 이미 값이 있으면 건드리지 않음</li>
+    <li>Firestore에는 있는데 새 Excel에서 사라진 WBS-ID → 삭제하지 않고 <code>archived: true</code>로 표시(기본 화면에서 숨김)</li>
+  </ul>
+  <button id="run">동기화 실행</button>
+  <div id="log">대기 중…</div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+    import {
+      getFirestore, collection, getDocs, doc, setDoc, updateDoc, serverTimestamp,
+    } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+    import { firebaseConfig } from "./firebase-config.js";
+
+    const logEl = document.getElementById("log");
+    const btn = document.getElementById("run");
+    const log = (msg) => { logEl.textContent += `\n${msg}`; };
+
+    const appFb = initializeApp(firebaseConfig);
+    const db = getFirestore(appFb);
+    const tasksCol = collection(db, "wbsTasks");
+
+    const idFor = (wbsId) => `wbs-${wbsId.replace(/[^a-zA-Z0-9.]/g, "_")}`;
+
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      logEl.textContent = "시작합니다…";
+      try {
+        const existingSnap = await getDocs(tasksCol);
+        const existingById = new Map();
+        existingSnap.forEach((d) => existingById.set(d.id, d.data()));
+        log(`기존 Firestore 과제 ${existingById.size}건 확인`);
+
+        const res = await fetch("./seed-data.json");
+        const tasks = await res.json();
+        log(`새 seed-data.json에서 ${tasks.length}건 로드\n`);
+
+        const newIds = new Set();
+        let added = 0;
+        let updated = 0;
+
+        for (const t of tasks) {
+          const id = idFor(t.wbsId);
+          newIds.add(id);
+          const structural = {
+            wbsId: t.wbsId,
+            lv1: t.lv1,
+            lv2: t.lv2,
+            lv3: t.lv3,
+            title: t.title,
+            owner: t.owner,
+            ownerSub: t.ownerSub,
+            weight: t.weight,
+            urgent: t.urgent,
+            erpRequired: !!t.erpRequired,
+            stub: !!t.stub,
+            archived: false,
+            updatedAt: serverTimestamp(),
+          };
+          if (existingById.has(id)) {
+            const existing = existingById.get(id);
+            let dateNote = "";
+            if (!existing.startDate && t.startDate) {
+              structural.startDate = t.startDate;
+              dateNote += ` [시작일 채움:${t.startDate}]`;
+            }
+            if (!existing.endDate && t.endDate) {
+              structural.endDate = t.endDate;
+              dateNote += ` [종료일 채움:${t.endDate}]`;
+            }
+            await updateDoc(doc(db, "wbsTasks", id), structural);
+            updated++;
+            log(`  [구조갱신] ${t.wbsId} ${t.title}${dateNote}`);
+          } else {
+            await setDoc(doc(db, "wbsTasks", id), { ...t, archived: false, updatedAt: serverTimestamp() });
+            added++;
+            log(`  [신규추가] ${t.wbsId} ${t.title}`);
+          }
+        }
+
+        let archived = 0;
+        for (const [id, data] of existingById) {
+          if (!newIds.has(id) && !data.archived) {
+            await updateDoc(doc(db, "wbsTasks", id), { archived: true, updatedAt: serverTimestamp() });
+            archived++;
+            log(`  [숨김처리] ${data.wbsId || id} ${data.title || ""}`);
+          }
+        }
+
+        log(`\n완료! 신규 ${added}건 · 구조갱신 ${updated}건 · 숨김처리(드랍) ${archived}건`);
+      } catch (err) {
+        console.error(err);
+        log(`\n오류 발생: ${err.message}`);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
