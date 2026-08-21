@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>부품사업PI 프로젝트 WBS 대시보드</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <span class="brand-word">TYM</span>
+      <div>
+        <h1>부품사업PI 프로젝트 WBS 대시보드</h1>
+        <p>일정·진척률 현황판 — 담당자는 표에서 진행현황과 진척률을 직접 수정할 수 있습니다.</p>
+      </div>
+    </div>
+    <div id="sync-status">불러오는 중…</div>
+  </header>
+
+  <section class="hero-row">
+    <div class="card hero-figure">
+      <div class="label">전체 가중평균 진척률</div>
+      <div class="value" id="hero-value">–%</div>
+      <div class="meter-track"><div class="meter-fill" id="hero-meter" style="width:0%"></div></div>
+      <div class="sub" id="hero-sub">과제 0건 · 가중치 합계 0</div>
+    </div>
+
+    <div class="card kpi-row" id="kpi-row">
+      <!-- filled by app.js -->
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>일정 타임라인</h2>
+    <div id="gantt-chart"></div>
+  </section>
+
+  <section class="section-row">
+    <div class="card">
+      <h2>대분류별 진척률</h2>
+      <div id="category-chart"></div>
+    </div>
+    <div class="card">
+      <h2>진행현황 분포</h2>
+      <div class="status-stack" id="status-stack"></div>
+      <div class="status-legend" id="status-legend"></div>
+    </div>
+  </section>
+
+  <div class="filters">
+    <select id="filter-category"><option value="">전체 대분류</option></select>
+    <select id="filter-department"><option value="">전체 부서</option></select>
+    <select id="filter-status"><option value="">전체 상태</option></select>
+  </div>
+
+  <div class="card table-card">
+    <table>
+      <colgroup>
+        <col style="width:44px" />
+        <col style="width:96px" />
+        <col style="width:130px" />
+        <col style="width:200px" />
+        <col style="width:96px" />
+        <col style="width:84px" />
+        <col style="width:180px" />
+        <col style="width:80px" />
+        <col style="width:128px" />
+        <col style="width:128px" />
+        <col style="width:74px" />
+        <col style="width:200px" />
+        <col style="width:160px" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>대분류</th>
+          <th>과제명</th>
+          <th>과제 설명</th>
+          <th>담당자</th>
+          <th>진행현황</th>
+          <th>진행단계</th>
+          <th>진척률</th>
+          <th>시작일</th>
+          <th>종료일</th>
+          <th>마감준수</th>
+          <th>이슈사항</th>
+          <th>비고</th>
+        </tr>
+      </thead>
+      <tbody id="task-tbody">
+        <!-- filled by app.js -->
+      </tbody>
+    </table>
+  </div>
+
+  <footer class="note">
+    데이터는 Firebase Firestore에 저장되며, 이 페이지에서 수정하면 모든 팀원의 화면에 실시간으로 반영됩니다.
+  </footer>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
