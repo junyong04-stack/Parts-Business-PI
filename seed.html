@@ -2,20 +2,20 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>초기 데이터 가져오기 (1회용)</title>
+<title>WBS 초기 데이터 가져오기 (1회용)</title>
 <style>
   body { font-family: system-ui, sans-serif; max-width: 640px; margin: 60px auto; padding: 0 20px; color: #0b0b0b; }
   button { font-size: 15px; padding: 10px 18px; border-radius: 8px; border: 1px solid #c3c2b7; background: #2a78d6; color: white; cursor: pointer; }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
-  #log { margin-top: 20px; font-size: 13px; white-space: pre-wrap; background: #f9f9f7; border: 1px solid #e1e0d9; border-radius: 8px; padding: 14px; }
+  #log { margin-top: 20px; font-size: 13px; white-space: pre-wrap; background: #f9f9f7; border: 1px solid #e1e0d9; border-radius: 8px; padding: 14px; max-height: 400px; overflow-y: auto; }
   p.warn { color: #a04a00; font-size: 13px; }
 </style>
 </head>
 <body>
-  <h1>부품사업PI WBS — 초기 데이터 가져오기</h1>
-  <p>seed-data.json(Excel WBS의 LV2 기준 14개 과제)을 Firestore <code>tasks</code> 컬렉션에 한 번만 넣는 페이지입니다.
-  LV3/LV4 세부 항목은 추후 Excel에 채워지는 대로 seed-data.json을 갱신해 추가 반영할 예정입니다.
-  이미 데이터가 있는 상태에서 다시 실행하면 같은 No의 과제는 <b>덮어씁니다</b>(진행률 등 이후 수정 내용이 사라짐).</p>
+  <h1>부품사업PI팀 WBS — 초기 데이터 가져오기</h1>
+  <p>seed-data.json(새 Excel WBS의 LV1·LV2 기준 14개 과제)을 Firestore <code>wbsTasks</code> 컬렉션에 한 번만 넣는 페이지입니다.
+  LV3·LV4 상세 항목은 Excel에 채워지는 대로 seed-data.json을 갱신해 추가 반영할 예정입니다.
+  이미 데이터가 있는 상태에서 다시 실행하면 같은 WBS-ID의 과제는 <b>덮어씁니다</b>(진행률 등 이후 수정 내용이 사라짐).</p>
   <p class="warn">⚠️ 이 페이지는 최초 1회 실행 후에는 열지 마세요. 평소 팀원 공유는 index.html을 사용합니다.</p>
   <button id="run">Firestore로 가져오기 실행</button>
   <div id="log">대기 중…</div>
@@ -33,7 +33,7 @@
 
     const appFb = initializeApp(firebaseConfig);
     const db = getFirestore(appFb);
-    const tasksCol = collection(db, "tasks");
+    const tasksCol = collection(db, "wbsTasks");
 
     btn.addEventListener("click", async () => {
       btn.disabled = true;
@@ -41,7 +41,7 @@
       try {
         const existing = await getDocs(tasksCol);
         if (!existing.empty) {
-          const ok = confirm(`이미 ${existing.size}개의 과제가 Firestore에 있습니다. 계속 진행하면 같은 No는 덮어씁니다. 계속할까요?`);
+          const ok = confirm(`이미 ${existing.size}개의 과제가 Firestore(wbsTasks)에 있습니다. 계속 진행하면 같은 WBS-ID는 덮어씁니다. 계속할까요?`);
           if (!ok) { log("취소되었습니다."); btn.disabled = false; return; }
         }
 
@@ -50,9 +50,9 @@
         log(`seed-data.json에서 ${tasks.length}건 로드`);
 
         for (const t of tasks) {
-          const id = `task-${t.no}`;
-          await setDoc(doc(db, "tasks", id), { ...t, updatedAt: serverTimestamp() });
-          log(`  저장됨: No.${t.no} ${t.title}`);
+          const id = `wbs-${t.wbsId.replace(/[^a-zA-Z0-9.]/g, "_")}`;
+          await setDoc(doc(db, "wbsTasks", id), { ...t, updatedAt: serverTimestamp() });
+          log(`  저장됨: ${t.wbsId} ${t.title}`);
         }
         log(`\n완료! 총 ${tasks.length}건 저장했습니다. index.html을 열어 확인하세요.`);
       } catch (err) {
