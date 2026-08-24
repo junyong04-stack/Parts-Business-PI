@@ -3,7 +3,6 @@
     "wbsId": "1.1",
     "lv1": "공급망 관리",
     "lv2": "주문처리 단순화 (대체품/재고이전/KIT품)",
-    "lv3": "",
     "title": "주문처리 단순화 (대체품/재고이전/KIT품)",
     "owner": "김정훈",
     "ownerSub": [
@@ -24,14 +23,12 @@
     "startDate": null,
     "endDate": null,
     "remark": "",
-    "issue": "",
-    "stub": true
+    "issue": ""
   },
   {
     "wbsId": "1.2",
     "lv1": "공급망 관리",
     "lv2": "포장박스 간소화",
-    "lv3": "",
     "title": "포장박스 간소화",
     "owner": "이승현",
     "ownerSub": [
@@ -54,14 +51,12 @@
     "startDate": null,
     "endDate": null,
     "remark": "",
-    "issue": "",
-    "stub": true
+    "issue": ""
   },
   {
     "wbsId": "1.3",
     "lv1": "공급망 관리",
     "lv2": "재고불일치 개선 (수입품 입고기간 개선)",
-    "lv3": "",
     "title": "재고불일치 개선 (수입품 입고기간 개선)",
     "owner": "이승현",
     "ownerSub": [
@@ -69,7 +64,7 @@
       "이준용"
     ],
     "status": "-",
-    "weight": 5.5,
+    "weight": 0,
     "stages": {
       "statusAnalysis": false,
       "requirement": false,
@@ -83,40 +78,12 @@
     "startDate": null,
     "endDate": null,
     "remark": "",
-    "issue": "",
-    "stub": true
-  },
-  {
-    "wbsId": "1.3-2",
-    "lv1": "공급망 관리",
-    "lv2": "재고불일치 개선 (수입품 입고기간 개선)",
-    "lv3": "",
-    "title": "재고불일치 개선 (수입품 입고기간 개선)",
-    "owner": "",
-    "ownerSub": [],
-    "status": "-",
-    "weight": 2.5,
-    "stages": {
-      "statusAnalysis": false,
-      "requirement": false,
-      "design": false,
-      "development": false,
-      "test": false,
-      "deploy": false
-    },
-    "urgent": "",
-    "erpRequired": "",
-    "startDate": null,
-    "endDate": null,
-    "remark": "",
-    "issue": "",
-    "stub": true
+    "issue": ""
   },
   {
     "wbsId": "2.1",
     "lv1": "기준정보정비",
     "lv2": "SBOM 구축",
-    "lv3": "",
     "title": "SBOM 구축",
     "owner": "이승현",
     "ownerSub": [
@@ -139,14 +106,12 @@
     "startDate": null,
     "endDate": null,
     "remark": "",
-    "issue": "",
-    "stub": true
+    "issue": ""
   },
   {
     "wbsId": "2.2",
     "lv1": "기준정보정비",
     "lv2": "메인품번 정비",
-    "lv3": "",
     "title": "메인품번 정비",
     "owner": "박기동",
     "ownerSub": [
@@ -168,14 +133,12 @@
     "startDate": null,
     "endDate": null,
     "remark": "",
-    "issue": "",
-    "stub": true
+    "issue": ""
   },
   {
     "wbsId": "2.3",
     "lv1": "기준정보정비",
     "lv2": "포장/판매단위 표준화",
-    "lv3": "",
     "title": "포장/판매단위 표준화",
     "owner": "김정훈",
     "ownerSub": [],
@@ -194,14 +157,12 @@
     "startDate": null,
     "endDate": null,
     "remark": "",
-    "issue": "",
-    "stub": true
+    "issue": ""
   },
   {
     "wbsId": "2.3-2",
     "lv1": "기준정보정비",
     "lv2": "ABC 등급 운영",
-    "lv3": "",
     "title": "ABC 등급 운영",
     "owner": "김정훈",
     "ownerSub": [],
@@ -220,14 +181,12 @@
     "startDate": null,
     "endDate": null,
     "remark": "",
-    "issue": "",
-    "stub": true
+    "issue": ""
   },
   {
     "wbsId": "2.3-3",
     "lv1": "기준정보정비",
     "lv2": "Aging 관리",
-    "lv3": "",
     "title": "Aging 관리",
     "owner": "김정훈",
     "ownerSub": [],
@@ -246,14 +205,12 @@
     "startDate": null,
     "endDate": null,
     "remark": "",
-    "issue": "",
-    "stub": true
+    "issue": ""
   },
   {
     "wbsId": "3.1",
     "lv1": "해외출고안정화",
     "lv2": "수출 Lead-Time 개선 (크레이트/CT 통합, KPI)",
-    "lv3": "",
     "title": "수출 Lead-Time 개선 (크레이트/CT 통합, KPI)",
     "owner": "박기동",
     "ownerSub": [
@@ -275,14 +232,36 @@
     "startDate": null,
     "endDate": null,
     "remark": "",
-    "issue": "",
-    "stub": true
+    "issue": ""
+  },
+  {
+    "wbsId": "3.2",
+    "lv1": "해외출고안정화",
+    "lv2": "재고불일치 개선 (수입품 입고기간 개선)",
+    "title": "재고불일치 개선 (수입품 입고기간 개선)",
+    "owner": "",
+    "ownerSub": [],
+    "status": "-",
+    "weight": 1.0999999999999999,
+    "stages": {
+      "statusAnalysis": false,
+      "requirement": false,
+      "design": false,
+      "development": false,
+      "test": false,
+      "deploy": false
+    },
+    "urgent": "",
+    "erpRequired": "",
+    "startDate": null,
+    "endDate": null,
+    "remark": "",
+    "issue": ""
   },
   {
     "wbsId": "4.1",
     "lv1": "재고감축",
     "lv2": "단종(EOL)지정/운영",
-    "lv3": "",
     "title": "단종(EOL)지정/운영",
     "owner": "정승현",
     "ownerSub": [],
@@ -301,14 +280,12 @@
     "startDate": null,
     "endDate": null,
     "remark": "",
-    "issue": "",
-    "stub": true
+    "issue": ""
   },
   {
     "wbsId": "4.2",
     "lv1": "재고감축",
     "lv2": "불용품 폐기",
-    "lv3": "",
     "title": "불용품 폐기",
     "owner": "김정훈",
     "ownerSub": [
@@ -329,14 +306,12 @@
     "startDate": null,
     "endDate": null,
     "remark": "",
-    "issue": "",
-    "stub": true
+    "issue": ""
   },
   {
     "wbsId": "4.3",
     "lv1": "재고감축",
     "lv2": "수입품 반품",
-    "lv3": "",
     "title": "수입품 반품",
     "owner": "정승현",
     "ownerSub": [
@@ -358,14 +333,12 @@
     "startDate": null,
     "endDate": null,
     "remark": "",
-    "issue": "",
-    "stub": true
+    "issue": ""
   },
   {
     "wbsId": "4.4",
     "lv1": "재고감축",
     "lv2": "해외법인 재고관리 (ASN/자동발주)",
-    "lv3": "",
     "title": "해외법인 재고관리 (ASN/자동발주)",
     "owner": "정승현",
     "ownerSub": [
@@ -387,7 +360,6 @@
     "startDate": null,
     "endDate": null,
     "remark": "",
-    "issue": "",
-    "stub": true
+    "issue": ""
   }
 ]

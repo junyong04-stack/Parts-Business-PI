@@ -526,26 +526,6 @@ tr.leaf-row .title-cell {
   vertical-align: middle;
 }
 
-/* LV3/LV4 상세 반영 전 LV2 요약행 */
-tr.stub-row td {
-  color: var(--text-muted);
-}
-tr.stub-row .title-cell {
-  color: var(--text-primary);
-}
-.pending-badge {
-  display: inline-block;
-  font-size: 9px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: var(--radius-pill);
-  background: var(--status-neutral-bg);
-  color: var(--text-muted);
-  margin-left: 6px;
-  vertical-align: middle;
-  white-space: nowrap;
-}
-
 select.status-select {
   font-size: 12px;
   padding: 5px 8px;

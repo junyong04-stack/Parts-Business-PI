@@ -13,8 +13,6 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const tasksCol = collection(db, "wbsTasks");
 
-const KEY_SEP = "␟";
-
 const STATUS_ORDER = ["완료", "진행중", "검토요청", "미진행", "종결", "-"];
 const STATUS_COLOR = {
   완료: "var(--status-good)",
@@ -379,55 +377,20 @@ function isEditingActive() {
   );
 }
 
+// 현재 이 대시보드는 LV1(대분류) → LV2(과제) 2단 구조만 사용한다. LV3/LV4는 쓰지 않기로
+// 확정되어, 트리는 LV1 그룹행 하나 아래에 LV2 리프(과제) 행들이 바로 나오는 형태다.
 function buildTree(tasks) {
   const tree = new Map();
   for (const t of tasks) {
     const lv1 = t.lv1 || "미분류";
-    const lv2 = t.lv2 || "미분류";
-    const lv3 = t.lv3 || "미분류";
-    if (!tree.has(lv1)) tree.set(lv1, new Map());
-    const lv2Map = tree.get(lv1);
-    if (!lv2Map.has(lv2)) lv2Map.set(lv2, new Map());
-    const lv3Map = lv2Map.get(lv2);
-    if (!lv3Map.has(lv3)) lv3Map.set(lv3, []);
-    lv3Map.get(lv3).push(t);
+    if (!tree.has(lv1)) tree.set(lv1, []);
+    tree.get(lv1).push(t);
   }
   return tree;
 }
 
-function flattenLv3Map(lv3Map) {
-  const out = [];
-  for (const arr of lv3Map.values()) out.push(...arr);
-  return out;
-}
-function flattenLv2Map(lv2Map) {
-  const out = [];
-  for (const lv3Map of lv2Map.values()) out.push(...flattenLv3Map(lv3Map));
-  return out;
-}
-
-// LV2 밑에 아직 LV3/LV4 상세가 채워지지 않은 경우(stub) — 인위적인 "미분류" 그룹을 한 겹 더
-// 만들지 않고, LV2 바로 아래에 요약행만 하나 보여준다. 나중에 실제 LV3/LV4 데이터가 들어오면
-// stub이 아닌 leaf가 섞이므로 이 분기를 타지 않고 자동으로 정상적인 3단 트리로 전환된다.
-function isPendingDetailGroup(lv3Map) {
-  const keys = [...lv3Map.keys()];
-  return keys.length === 1 && keys[0] === "미분류" && lv3Map.get("미분류").every((t) => t.stub);
-}
-
 function allExpandableKeys(tasks) {
-  const tree = buildTree(tasks);
-  const keys = [];
-  for (const [lv1, lv2Map] of tree) {
-    keys.push(lv1);
-    for (const [lv2, lv3Map] of lv2Map) {
-      keys.push(`${lv1}${KEY_SEP}${lv2}`);
-      if (isPendingDetailGroup(lv3Map)) continue;
-      for (const lv3 of lv3Map.keys()) {
-        keys.push(`${lv1}${KEY_SEP}${lv2}${KEY_SEP}${lv3}`);
-      }
-    }
-  }
-  return keys;
+  return [...buildTree(tasks).keys()];
 }
 
 function groupRowHtml(level, key, label, leaves, open) {
@@ -450,31 +413,6 @@ function groupRowHtml(level, key, label, leaves, open) {
         <div class="mini-track"><div class="mini-fill" style="width:${avg}%"></div></div>
       </td>
       <td colspan="5" class="tree-empty"></td>
-    </tr>`;
-}
-
-// LV3/LV4 상세가 아직 없는 LV2 항목의 요약행. 담당자·진행현황·진행단계·일정·이슈/비고는
-// 아직 신뢰할 수 있는 값이 없으므로 표시하지 않고, WBS-ID·과제명·진척률만 보여준다.
-function stubRowHtml(t) {
-  const progress = effectiveProgress(t);
-  return `
-    <tr class="leaf-row stub-row${t.archived ? " is-archived" : ""}" data-id="${escapeHtml(t.id)}">
-      <td class="no-cell">${escapeHtml(t.wbsId)}</td>
-      <td class="title-cell">${t.archived ? '<span class="archived-badge">삭제됨</span>' : ""}${escapeHtml(t.title)}
-        <span class="pending-badge">LV3/LV4 반영 예정</span>
-      </td>
-      <td class="tree-empty"></td>
-      <td class="tree-empty"></td>
-      <td class="tree-empty"></td>
-      <td class="progress-cell">
-        <div class="progress-value">${progress}%</div>
-        <div class="mini-track"><div class="mini-fill" style="width:${progress}%"></div></div>
-      </td>
-      <td class="tree-empty"></td>
-      <td class="tree-empty"></td>
-      <td class="tree-empty"></td>
-      <td class="tree-empty"></td>
-      <td class="tree-empty"></td>
     </tr>`;
 }
 
@@ -548,34 +486,13 @@ function renderTreeTable() {
 
   const rows = [];
   const editableLeaves = [];
-  for (const [lv1, lv2Map] of tree) {
-    const lv1Leaves = flattenLv2Map(lv2Map);
-    const lv1Key = lv1;
-    const lv1Open = filtersActive || expandedKeys.has(lv1Key);
-    rows.push(groupRowHtml(1, lv1Key, lv1, lv1Leaves, lv1Open));
+  for (const [lv1, items] of tree) {
+    const lv1Open = filtersActive || expandedKeys.has(lv1);
+    rows.push(groupRowHtml(1, lv1, lv1, items, lv1Open));
     if (!lv1Open) continue;
-    for (const [lv2, lv3Map] of lv2Map) {
-      const lv2Leaves = flattenLv3Map(lv3Map);
-      const lv2Key = `${lv1}${KEY_SEP}${lv2}`;
-      const lv2Open = filtersActive || expandedKeys.has(lv2Key);
-      rows.push(groupRowHtml(2, lv2Key, lv2, lv2Leaves, lv2Open));
-      if (!lv2Open) continue;
-
-      if (isPendingDetailGroup(lv3Map)) {
-        for (const t of lv3Map.get("미분류")) rows.push(stubRowHtml(t));
-        continue;
-      }
-
-      for (const [lv3, leafList] of lv3Map) {
-        const lv3Key = `${lv1}${KEY_SEP}${lv2}${KEY_SEP}${lv3}`;
-        const lv3Open = filtersActive || expandedKeys.has(lv3Key);
-        rows.push(groupRowHtml(3, lv3Key, lv3, leafList, lv3Open));
-        if (!lv3Open) continue;
-        for (const t of leafList) {
-          rows.push(rowHtml(t));
-          editableLeaves.push(t);
-        }
-      }
+    for (const t of items) {
+      rows.push(rowHtml(t));
+      editableLeaves.push(t);
     }
   }
 
