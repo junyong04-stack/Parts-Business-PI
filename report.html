@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>부품사업PI팀 경영진 보고 대시보드</title>
+<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="report-style.css" />
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <span class="brand-word">TYM</span>
+      <div>
+        <h1>부품사업PI팀 경영진 보고 대시보드</h1>
+        <p>1LV 전략과제(4개) → 실행과제(14개) → 세부과제(약 45개) 가중평균 진척률 현황판 — 세부과제 표에서 진척률(%)·D365 개발 필요 여부를 직접 입력할 수 있습니다.</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <label class="username-field">
+        이름
+        <input type="text" id="user-name" placeholder="입력하지 않으면 익명으로 기록됩니다" autocomplete="off" maxlength="20" />
+      </label>
+      <button type="button" id="snapshot-btn" class="tree-btn">이번 주 스냅샷 저장</button>
+      <div id="sync-status">불러오는 중…</div>
+    </div>
+  </header>
+
+  <section class="hero-row hero-row-exec">
+    <div class="card hero-figure exec-hero-donut">
+      <div class="label">전체 과제 진척률</div>
+      <div class="donut-wrap">
+        <div class="donut-figure" id="hero-donut"></div>
+      </div>
+      <div class="sub" id="hero-sub">세부과제 0건 · 가중치 합계 0</div>
+      <div class="plan-gap" id="plan-gap"></div>
+      <div class="trend-gap" id="trend-gap"></div>
+    </div>
+
+    <div class="card kpi-row" id="kpi-row">
+      <!-- filled by report-app.js -->
+    </div>
+
+    <div class="card">
+      <h2>진행현황 분포</h2>
+      <div class="status-stack" id="status-stack"></div>
+      <div class="status-legend" id="status-legend"></div>
+    </div>
+  </section>
+
+  <section class="exec-mid-row">
+    <div class="exec-side-stack">
+      <div class="card">
+        <h2>전략과제 진척률</h2>
+        <div id="lv1-chart"></div>
+      </div>
+      <div class="card">
+        <h2>담당자별 진척률</h2>
+        <div id="owner-chart"></div>
+      </div>
+      <div class="card">
+        <h2>D365 개발 필요 과제 진척률</h2>
+        <div class="donut-wrap" id="erp-donut"></div>
+        <p class="donut-caption">※ 별도 트랙 — 아래 표에서 담당자가 D365 체크한 세부과제만 집계</p>
+      </div>
+    </div>
+    <div class="exec-side-stack">
+      <div class="card exec-lv2-card">
+        <h2>실행과제 진척률 (14개)</h2>
+        <div id="lv2-chart" class="lv2-chart-grid"></div>
+      </div>
+      <div class="card">
+        <h2>지연 위험 · 이슈 세부과제</h2>
+        <div id="watchlist"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="card table-card">
+    <div class="table-card-head">
+      <h2>세부과제(LV3) 진척률 입력</h2>
+      <label class="archive-toggle erp-filter-toggle">
+        <input type="checkbox" id="filter-erp-only" /> D365 필요 과제만 보기
+      </label>
+    </div>
+    <table>
+      <colgroup>
+        <col style="width:90px" />
+        <col style="width:340px" />
+        <col style="width:100px" />
+        <col style="width:90px" />
+        <col style="width:70px" />
+        <col style="width:70px" />
+        <col style="width:120px" />
+        <col style="width:80px" />
+        <col style="width:110px" />
+        <col style="width:110px" />
+        <col style="width:220px" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>WBS-ID</th>
+          <th>과제명 (1LV&nbsp;&gt;&nbsp;실행과제&nbsp;&gt;&nbsp;세부과제)</th>
+          <th>담당자</th>
+          <th>상태</th>
+          <th>지연</th>
+          <th title="난이도×영향범위 기준, PI팀 합의">가중치 ⓘ</th>
+          <th>진척률(%)</th>
+          <th>D365</th>
+          <th>시작일</th>
+          <th>종료일</th>
+          <th>이슈 현황</th>
+        </tr>
+      </thead>
+      <tbody id="task-tbody">
+        <!-- filled by report-app.js -->
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="table-card-head">
+      <h2>변경 이력</h2>
+      <span class="changelog-hint">누가 언제 무엇을 바꿨는지 최근 50건까지 기록됩니다</span>
+    </div>
+    <div id="changelog"></div>
+  </div>
+
+  <footer class="note">
+    데이터는 Firebase Firestore(wbsExecTasks 컬렉션)에 저장되며, 진척률(%)·D365 체크 입력 시 모든 팀원의 화면에 실시간으로 반영됩니다.
+    구조(가중치·담당자·일정)는 부품사업PI_프로젝트_WBS_진척률_경영진보고 개발용.xlsx 기준이며, 진척률과 D365 개발 필요 여부는 실적에 맞게 직접 입력해 주세요.
+    입력창 위 "이름"을 적어두면 변경 이력에 누가 수정했는지 함께 남습니다.
+  </footer>
+</div>
+
+<script type="module" src="report-app.js"></script>
+</body>
+</html>

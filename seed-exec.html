@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>경영진보고 WBS 구조 동기화</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 680px; margin: 60px auto; padding: 0 20px; color: #0b0b0b; }
+  button { font-size: 15px; padding: 10px 18px; border-radius: 8px; border: 1px solid #c3c2b7; background: #2a78d6; color: white; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  #log { margin-top: 20px; font-size: 13px; white-space: pre-wrap; background: #f9f9f7; border: 1px solid #e1e0d9; border-radius: 8px; padding: 14px; max-height: 460px; overflow-y: auto; }
+  ul { font-size: 13px; }
+</style>
+</head>
+<body>
+  <h1>경영진보고 WBS(LV1&gt;LV2&gt;LV3) 구조 동기화</h1>
+  <p><code>exec-seed-data.json</code>(경영진보고용 Excel에서 추출한 세부과제 45건, 진척률 포함)을 기준으로
+  Firestore(<code>wbsExecTasks</code>)를 동기화합니다. Excel의 진척률(%)·상태·담당자·가중치·일정은 그대로 덮어쓰지만,
+  <b>대시보드에서만 관리하는 D365 체크·이슈 현황·비고는 그대로 유지</b>합니다.</p>
+  <ul>
+    <li>새 Excel에만 있는 WBS-ID(세부과제) → 새 과제로 추가 (D365 미체크·이슈 없음으로 시작)</li>
+    <li>기존에도 있던 WBS-ID → 1LV/2LV/3LV 명칭·담당자·가중치·상태·진척률·일정을 Excel 값으로 갱신, <b>D365 체크·이슈 현황·비고는 기존 값 유지</b></li>
+    <li>Firestore에는 있는데 새 Excel에서 사라진 WBS-ID → 삭제하지 않고 <code>archived: true</code>로 표시(대시보드에서 숨김)</li>
+  </ul>
+  <button id="run">동기화 실행</button>
+  <div id="log">대기 중…</div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+    import {
+      getFirestore, collection, getDocs, doc, setDoc, updateDoc, serverTimestamp,
+    } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+    import { firebaseConfig } from "./firebase-config.js";
+
+    const logEl = document.getElementById("log");
+    const btn = document.getElementById("run");
+    const log = (msg) => { logEl.textContent += `\n${msg}`; };
+
+    const appFb = initializeApp(firebaseConfig);
+    const db = getFirestore(appFb);
+    const authFb = getAuth(appFb);
+    const tasksCol = collection(db, "wbsExecTasks");
+
+    try {
+      await signInAnonymously(authFb);
+    } catch (err) {
+      console.error(err);
+      log("로그인 실패 — Firebase 콘솔에서 익명 로그인이 켜져 있는지 확인하세요");
+    }
+
+    const idFor = (wbsId) => `exec-${wbsId.replace(/[^a-zA-Z0-9.]/g, "_")}`;
+
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      logEl.textContent = "시작합니다…";
+      try {
+        const existingSnap = await getDocs(tasksCol);
+        const existingById = new Map();
+        existingSnap.forEach((d) => existingById.set(d.id, d.data()));
+        log(`기존 Firestore 세부과제 ${existingById.size}건 확인`);
+
+        const res = await fetch("./exec-seed-data.json");
+        const tasks = await res.json();
+        log(`새 exec-seed-data.json에서 ${tasks.length}건 로드\n`);
+
+        const newIds = new Set();
+        let added = 0;
+        let updated = 0;
+
+        for (const t of tasks) {
+          const id = idFor(t.wbsId);
+          newIds.add(id);
+          const fromExcel = {
+            wbsId: t.wbsId,
+            lv1: t.lv1,
+            lv1Weight: t.lv1Weight,
+            lv2Id: t.lv2Id,
+            lv2: t.lv2,
+            lv2Weight: t.lv2Weight,
+            lv2KeyTask: t.lv2KeyTask,
+            lv2Owner: t.lv2Owner,
+            lv2OwnerSub: t.lv2OwnerSub,
+            lv2Status: t.lv2Status,
+            lv3: t.lv3,
+            owner: t.owner,
+            ownerSub: t.ownerSub,
+            status: t.status,
+            weight: t.weight,
+            progress: t.progress,
+            startDate: t.startDate,
+            endDate: t.endDate,
+            archived: false,
+            updatedAt: serverTimestamp(),
+          };
+          if (existingById.has(id)) {
+            await updateDoc(doc(db, "wbsExecTasks", id), fromExcel);
+            updated++;
+            log(`  [갱신] ${t.wbsId} ${t.lv3} (진척률 ${t.progress}%)`);
+          } else {
+            await setDoc(doc(db, "wbsExecTasks", id), {
+              ...fromExcel,
+              erpRequired: false,
+              remark: "",
+              issue: "",
+            });
+            added++;
+            log(`  [신규추가] ${t.wbsId} ${t.lv3}`);
+          }
+        }
+
+        let archived = 0;
+        for (const [id, data] of existingById) {
+          if (!newIds.has(id) && !data.archived) {
+            await updateDoc(doc(db, "wbsExecTasks", id), { archived: true, updatedAt: serverTimestamp() });
+            archived++;
+            log(`  [숨김처리] ${data.wbsId || id} ${data.lv3 || ""}`);
+          }
+        }
+
+        log(`\n완료! 신규 ${added}건 · 구조갱신 ${updated}건 · 숨김처리 ${archived}건`);
+      } catch (err) {
+        console.error(err);
+        log(`\n오류 발생: ${err.message}`);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
