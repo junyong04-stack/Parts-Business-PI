@@ -30,7 +30,15 @@ try {
     "로그인 실패 — Firebase 콘솔에서 익명 로그인이 켜져 있는지 확인하세요";
 }
 
-const FIELD_LABELS = { progress: "진척률", erpRequired: "D365", issue: "이슈 현황" };
+const FIELD_LABELS = {
+  progress: "진척률",
+  erpRequired: "D365",
+  wmsRequired: "WMS",
+  crmRequired: "CRM",
+  delayReason: "지연사유",
+  issue: "이슈 현황",
+};
+const DELAY_REASONS = ["사업부 협의", "시스템 개발", "의사결정"];
 
 function currentUserName() {
   const v = (el("#user-name").value || "").trim();
@@ -39,8 +47,9 @@ function currentUserName() {
 
 function formatLogValue(field, value) {
   if (field === "progress") return `${value}%`;
-  if (field === "erpRequired") return value ? "체크" : "해제";
+  if (field === "erpRequired" || field === "wmsRequired" || field === "crmRequired") return value ? "체크" : "해제";
   if (field === "issue") return value ? `"${value}"` : "(빈칸)";
+  if (field === "delayReason") return value ? value : "(선택 안함)";
   return String(value);
 }
 
@@ -70,6 +79,8 @@ const STATUS_COLOR = {
   검토: "var(--status-warning)",
   "-": "var(--status-neutral)",
 };
+// internal status value stays "-" (matches stored data); only the on-screen label changed to 미처리
+const STATUS_LABEL = { 완료: "완료", 진행중: "진행중", 검토: "검토", "-": "미처리" };
 
 function statusToneClass(status) {
   if (status === "완료") return "tone-good";
@@ -305,27 +316,12 @@ function computeRollups(tasks) {
   const overall = weightedAvg(lv1Groups, (x) => x.lv1Weight, (x) => x.progress);
   const overallPlanned = weightedAvg(lv1Groups, (x) => x.lv1Weight, (x) => x.plannedProgress);
 
-  const ownerMap = new Map();
-  for (const t of tasks) {
-    const owner = t.owner || "미지정";
-    if (!ownerMap.has(owner)) ownerMap.set(owner, []);
-    ownerMap.get(owner).push(t);
-  }
-  const owners = [...ownerMap.entries()].map(([owner, items]) => ({
-    owner,
-    items,
-    progress: weightedAvg(items, (t) => t.weight, (t) => t.progress),
-    weightSum: items.reduce((s, t) => s + (Number(t.weight) || 0), 0),
-  }));
-  owners.sort((a, b) => b.weightSum - a.weightSum);
-
-  return { lv1Map, lv2Map, overall, overallPlanned, owners };
+  return { lv1Map, lv2Map, overall, overallPlanned };
 }
 
 function renderAll() {
-  const { lv1Map, lv2Map, overall, overallPlanned, owners } = computeRollups(allTasks);
+  const { lv1Map, overall, overallPlanned } = computeRollups(allTasks);
   const lv1Groups = [...lv1Map.values()];
-  const lv2Groups = [...lv2Map.values()];
 
   // hero
   el("#hero-donut").innerHTML = `${donutSvg(overall, 116)}<div class="donut-center"><div class="pct">${overall.toFixed(1)}%</div></div>`;
@@ -354,7 +350,7 @@ function renderAll() {
   const tiles = [
     { label: "총 세부과제", value: allTasks.length, color: null },
     ...STATUS_ORDER.map((s) => ({
-      label: s,
+      label: STATUS_LABEL[s],
       value: allTasks.filter((t) => t.status === s).length,
       color: STATUS_COLOR[s],
     })),
@@ -372,22 +368,8 @@ function renderAll() {
   // LV1(전략과제) bar chart — colored by each pillar's derived status, natural 1→4 order
   el("#lv1-chart").innerHTML = lv1Groups.map((g) => barRowHtml(g.lv1, g.progress, g.status)).join("");
 
-  // LV2(실행과제) bar chart — 14 items, natural wbsId order
-  el("#lv2-chart").innerHTML = lv2Groups.map((g) => barRowHtml(`${g.lv2Id} ${g.lv2}`, g.progress, g.status)).join("");
-
-  // owner bar chart — "미지정"(unassigned) gets a distinct muted/italic treatment so it isn't confused with an assigned owner sitting at 0%
-  el("#owner-chart").innerHTML = owners.length
-    ? owners
-        .map((o) =>
-          barRowHtml(
-            o.owner === "미지정" ? "미지정 (담당자 미배정)" : o.owner,
-            o.progress,
-            null,
-            o.owner === "미지정" ? { rowClass: "owner-unassigned" } : {}
-          )
-        )
-        .join("")
-    : `<p class="empty-note">담당자 데이터가 없습니다.</p>`;
+  // LV3(세부과제) grouped directly under each LV1 pillar — LV2 grouping stays in the input table only
+  renderLv3Summary(lv1Groups);
 
   // status distribution
   const total = allTasks.length || 1;
@@ -395,28 +377,49 @@ function renderAll() {
     const count = allTasks.filter((t) => t.status === s).length;
     if (!count) return "";
     const pct = (count / total) * 100;
-    return `<div class="seg" style="width:${pct}%; background:${STATUS_COLOR[s]}" title="${s} ${count}건"></div>`;
+    return `<div class="seg" style="width:${pct}%; background:${STATUS_COLOR[s]}" title="${STATUS_LABEL[s]} ${count}건"></div>`;
   }).join("");
   el("#status-legend").innerHTML = STATUS_ORDER.map((s) => {
     const count = allTasks.filter((t) => t.status === s).length;
-    return `<div class="item"><span class="swatch" style="background:${STATUS_COLOR[s]}"></span>${s} ${count}건</div>`;
+    return `<div class="item"><span class="swatch" style="background:${STATUS_COLOR[s]}"></span>${STATUS_LABEL[s]} ${count}건</div>`;
   }).join("");
 
-  // D365 donut — only over tasks the user has manually checked as erpRequired
-  renderErpDonut();
+  // system-track donuts — each only over tasks the user has manually checked for that track
+  renderTrackDonut("erpRequired", "#erp-donut", "D365");
+  renderTrackDonut("crmRequired", "#crm-donut", "CRM");
+  renderTrackDonut("wmsRequired", "#wms-donut", "WMS");
 
   // delay/issue watchlist
   renderWatchlist();
 
+  // task-issue summary, grouped by LV1 pillar
+  renderIssuePanel(lv1Groups);
+
   renderTable(lv1Groups);
 }
 
-function renderErpDonut() {
-  const tasks = allTasks.filter((t) => t.erpRequired);
+function renderLv3Summary(lv1Groups) {
+  el("#lv3-summary-grid").innerHTML = lv1Groups
+    .map((g) => {
+      const items = g.lv2Groups.flatMap((lv2g) => lv2g.items);
+      const rows = items
+        .map((t) => barRowHtml(`${t.wbsId} ${t.lv3}`, clampPct(t.progress), t.status))
+        .join("");
+      return `
+        <div class="lv3-summary-group">
+          <h3>${escapeHtml(g.lv1)}</h3>
+          <div class="lv3-summary-list">${rows}</div>
+        </div>`;
+    })
+    .join("");
+}
+
+function renderTrackDonut(field, elId, trackName) {
+  const tasks = allTasks.filter((t) => t[field]);
   const avg = weightedAvg(tasks, (t) => t.weight, (t) => t.progress);
-  const el2 = el("#erp-donut");
+  const el2 = el(elId);
   if (!tasks.length) {
-    el2.innerHTML = `<p class="empty-note">D365 개발이 필요한 과제가 아직 표시되지 않았습니다. 아래 표에서 세부과제별로 D365 체크박스를 선택해 주세요.</p>`;
+    el2.innerHTML = `<p class="empty-note">${trackName} 개발이 필요한 과제가 아직 표시되지 않았습니다. 아래 표에서 세부과제별로 ${trackName} 체크박스를 선택해 주세요.</p>`;
     return;
   }
   el2.innerHTML = `
@@ -427,6 +430,37 @@ function renderErpDonut() {
         <div class="cnt">${tasks.length}건</div>
       </div>
     </div>`;
+}
+
+function renderIssuePanel(lv1Groups) {
+  el("#issue-panel").innerHTML = lv1Groups
+    .map((g) => {
+      const items = g.lv2Groups
+        .flatMap((lv2g) => lv2g.items)
+        .filter((t) => t.status !== "완료" && t.delayReason);
+      if (!items.length) {
+        return `
+          <div class="issue-group">
+            <div class="issue-lv1">${escapeHtml(g.lv1)}</div>
+            <div class="issue-empty">이슈 없음</div>
+          </div>`;
+      }
+      const reasonCounts = new Map();
+      for (const t of items) reasonCounts.set(t.delayReason, (reasonCounts.get(t.delayReason) || 0) + 1);
+      const reasonBullets = [...reasonCounts.entries()]
+        .map(([reason, count]) => `<li>${escapeHtml(reason)} ${count}건</li>`)
+        .join("");
+      const detailBullets = items
+        .filter((t) => t.issue && t.issue.trim())
+        .map((t) => `<li class="issue-detail">${escapeHtml(t.wbsId)} ${escapeHtml(t.lv3)}: ${escapeHtml(t.issue)}</li>`)
+        .join("");
+      return `
+        <div class="issue-group">
+          <div class="issue-lv1">${escapeHtml(g.lv1)}</div>
+          <ul class="issue-list">${reasonBullets}${detailBullets}</ul>
+        </div>`;
+    })
+    .join("");
 }
 
 function renderWatchlist() {
@@ -496,7 +530,7 @@ function renderTable(lv1Groups) {
     const lv3CountLv1 = lv1g.lv2Groups.reduce((s, g) => s + g.items.length, 0);
     rows.push(`
       <tr class="tree-group lv1">
-        <td colspan="6">
+        <td colspan="7">
           <div class="tree-group-cell">
             <button type="button" class="tree-toggle" data-key="${escapeHtml(lv1Key)}">${lv1Open ? "▾" : "▸"}</button>
             <span>${escapeHtml(lv1g.lv1)}</span>
@@ -507,7 +541,7 @@ function renderTable(lv1Groups) {
           <div class="progress-value">${lv1g.progress.toFixed(0)}%</div>
           <div class="mini-track"><div class="mini-fill" style="width:${lv1g.progress}%; background:${STATUS_COLOR[lv1g.status]}"></div></div>
         </td>
-        <td colspan="4"></td>
+        <td colspan="6"></td>
       </tr>`);
     if (!lv1Open) continue;
 
@@ -516,7 +550,7 @@ function renderTable(lv1Groups) {
       const lv2Open = expandedKeys.has(lv2Key);
       rows.push(`
         <tr class="tree-group lv2">
-          <td colspan="6">
+          <td colspan="7">
             <div class="tree-group-cell" style="padding-left:18px">
               <button type="button" class="tree-toggle" data-key="${escapeHtml(lv2Key)}">${lv2Open ? "▾" : "▸"}</button>
               <span>${escapeHtml(lv2g.lv2Id)} ${escapeHtml(lv2g.lv2)}${lv2g.lv2KeyTask ? '<span class="keytask-badge">핵심</span>' : ""}</span>
@@ -527,7 +561,7 @@ function renderTable(lv1Groups) {
             <div class="progress-value">${lv2g.progress.toFixed(0)}%</div>
             <div class="mini-track"><div class="mini-fill" style="width:${lv2g.progress}%; background:${STATUS_COLOR[lv2g.status]}"></div></div>
           </td>
-          <td colspan="4"></td>
+          <td colspan="6"></td>
         </tr>`);
       if (!lv2Open) continue;
 
@@ -556,13 +590,23 @@ function renderTable(lv1Groups) {
 function leafRowHtml(t) {
   const progress = clampPct(t.progress);
   const color = STATUS_COLOR[t.status] || "var(--status-neutral)";
+  const delayReasonDisabled = t.status === "완료";
+  const delayReasonOptions = DELAY_REASONS.map(
+    (r) => `<option value="${escapeHtml(r)}" ${t.delayReason === r ? "selected" : ""}>${escapeHtml(r)}</option>`
+  ).join("");
   return `
     <tr class="leaf-row exec-lv3-row" data-id="${escapeHtml(t.id)}">
       <td class="no-cell">${escapeHtml(t.wbsId)}</td>
       <td class="title-cell lv3-cell">${escapeHtml(t.lv3)}</td>
       <td>${escapeHtml(t.owner)}</td>
-      <td><span class="exec-status ${statusToneClass(t.status)}">${escapeHtml(t.status)}</span></td>
+      <td><span class="exec-status ${statusToneClass(t.status)}">${escapeHtml(STATUS_LABEL[t.status] || t.status)}</span></td>
       <td>${t.delayed ? '<span class="delay-badge">지연</span>' : ""}</td>
+      <td>
+        <select class="delay-reason-select" data-field="delayReason" ${delayReasonDisabled ? "disabled" : ""}>
+          <option value="">선택</option>
+          ${delayReasonOptions}
+        </select>
+      </td>
       <td>${t.weight}</td>
       <td class="progress-cell">
         <input type="number" class="progress-input" data-field="progress" min="0" max="100" step="1" value="${progress}" />
@@ -570,6 +614,12 @@ function leafRowHtml(t) {
       </td>
       <td style="text-align:center">
         <input type="checkbox" class="erp-checkbox" data-field="erpRequired" ${t.erpRequired ? "checked" : ""} />
+      </td>
+      <td style="text-align:center">
+        <input type="checkbox" class="erp-checkbox" data-field="crmRequired" ${t.crmRequired ? "checked" : ""} />
+      </td>
+      <td style="text-align:center">
+        <input type="checkbox" class="erp-checkbox" data-field="wmsRequired" ${t.wmsRequired ? "checked" : ""} />
       </td>
       <td>${escapeHtml(t.startDate)}</td>
       <td>${escapeHtml(t.endDate)}</td>
@@ -583,8 +633,29 @@ function isEditingActive() {
     activeEl &&
     activeEl.closest &&
     activeEl.closest("#task-tbody") &&
-    ["INPUT", "TEXTAREA"].includes(activeEl.tagName)
+    ["INPUT", "TEXTAREA", "SELECT"].includes(activeEl.tagName)
   );
+}
+
+function attachCheckboxHandler(tr, t, field) {
+  const checkbox = tr.querySelector(`[data-field="${field}"]`);
+  if (!checkbox) return;
+  checkbox.addEventListener("change", async () => {
+    const oldValue = !!t[field];
+    const newValue = checkbox.checked;
+    try {
+      await updateDoc(doc(db, "wbsExecTasks", t.id), {
+        [field]: newValue,
+        updatedAt: serverTimestamp(),
+      });
+      logChange(t, field, oldValue, newValue);
+      tr.classList.add("save-flash");
+      setTimeout(() => tr.classList.remove("save-flash"), 600);
+    } catch (err) {
+      console.error(err);
+      alert("저장에 실패했습니다. 네트워크 연결을 확인해주세요.");
+    }
+  });
 }
 
 function attachRowHandlers(t) {
@@ -612,17 +683,21 @@ function attachRowHandlers(t) {
     });
   }
 
-  const erpCheckbox = tr.querySelector('[data-field="erpRequired"]');
-  if (erpCheckbox) {
-    erpCheckbox.addEventListener("change", async () => {
-      const oldValue = !!t.erpRequired;
-      const newValue = erpCheckbox.checked;
+  attachCheckboxHandler(tr, t, "erpRequired");
+  attachCheckboxHandler(tr, t, "crmRequired");
+  attachCheckboxHandler(tr, t, "wmsRequired");
+
+  const delayReasonSelect = tr.querySelector('[data-field="delayReason"]');
+  if (delayReasonSelect) {
+    delayReasonSelect.addEventListener("change", async () => {
+      const oldValue = t.delayReason || "";
+      const newValue = delayReasonSelect.value;
       try {
         await updateDoc(doc(db, "wbsExecTasks", t.id), {
-          erpRequired: newValue,
+          delayReason: newValue,
           updatedAt: serverTimestamp(),
         });
-        logChange(t, "erpRequired", oldValue, newValue);
+        logChange(t, "delayReason", oldValue, newValue);
         tr.classList.add("save-flash");
         setTimeout(() => tr.classList.remove("save-flash"), 600);
       } catch (err) {

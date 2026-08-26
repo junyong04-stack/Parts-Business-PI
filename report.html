@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>부품사업PI팀 경영진 보고 대시보드</title>
+<title>부품사업PI 추진과제 대시보드</title>
 <link rel="stylesheet" href="style.css" />
 <link rel="stylesheet" href="report-style.css" />
 </head>
@@ -13,8 +13,8 @@
     <div class="brand">
       <span class="brand-word">TYM</span>
       <div>
-        <h1>부품사업PI팀 경영진 보고 대시보드</h1>
-        <p>1LV 전략과제(4개) → 실행과제(14개) → 세부과제(약 45개) 가중평균 진척률 현황판 — 세부과제 표에서 진척률(%)·D365 개발 필요 여부를 직접 입력할 수 있습니다.</p>
+        <h1>부품사업PI 추진과제 대시보드</h1>
+        <p>1LV 전략과제(4개) 산하 세부과제(약 45개) 가중평균 진척률 현황판 — 세부과제 표에서 진척률(%)·시스템 개발 필요 여부(D365/CRM/WMS)·지연사유를 직접 입력할 수 있습니다.</p>
       </div>
     </div>
     <div class="header-right">
@@ -47,6 +47,11 @@
       <div class="status-stack" id="status-stack"></div>
       <div class="status-legend" id="status-legend"></div>
     </div>
+
+    <div class="card issue-card">
+      <h2>과제 이슈</h2>
+      <div id="issue-panel"></div>
+    </div>
   </section>
 
   <section class="exec-mid-row">
@@ -55,20 +60,29 @@
         <h2>전략과제 진척률</h2>
         <div id="lv1-chart"></div>
       </div>
-      <div class="card">
-        <h2>담당자별 진척률</h2>
-        <div id="owner-chart"></div>
-      </div>
-      <div class="card">
-        <h2>D365 개발 필요 과제 진척률</h2>
-        <div class="donut-wrap" id="erp-donut"></div>
-        <p class="donut-caption">※ 별도 트랙 — 아래 표에서 담당자가 D365 체크한 세부과제만 집계</p>
+      <div class="card sys-track-card">
+        <h2>시스템 개발 진척률</h2>
+        <div class="sys-track-item">
+          <h3>D365 진척률</h3>
+          <div class="donut-wrap" id="erp-donut"></div>
+          <p class="donut-caption">※ 별도 트랙 — 아래 표에서 담당자가 D365 체크한 세부과제만 집계</p>
+        </div>
+        <div class="sys-track-item">
+          <h3>CRM 진척률</h3>
+          <div class="donut-wrap" id="crm-donut"></div>
+          <p class="donut-caption">※ 별도 트랙 — 아래 표에서 담당자가 CRM 체크한 세부과제만 집계</p>
+        </div>
+        <div class="sys-track-item">
+          <h3>WMS 진척률</h3>
+          <div class="donut-wrap" id="wms-donut"></div>
+          <p class="donut-caption">※ 별도 트랙 — 아래 표에서 담당자가 WMS 체크한 세부과제만 집계</p>
+        </div>
       </div>
     </div>
     <div class="exec-side-stack">
-      <div class="card exec-lv2-card">
-        <h2>실행과제 진척률 (14개)</h2>
-        <div id="lv2-chart" class="lv2-chart-grid"></div>
+      <div class="card exec-lv3-summary-card">
+        <h2>세부과제 진척률</h2>
+        <div id="lv3-summary-grid" class="lv3-summary-grid"></div>
       </div>
       <div class="card">
         <h2>지연 위험 · 이슈 세부과제</h2>
@@ -91,12 +105,15 @@
         <col style="width:100px" />
         <col style="width:90px" />
         <col style="width:70px" />
+        <col style="width:130px" />
         <col style="width:70px" />
         <col style="width:120px" />
-        <col style="width:80px" />
-        <col style="width:110px" />
-        <col style="width:110px" />
-        <col style="width:220px" />
+        <col style="width:70px" />
+        <col style="width:70px" />
+        <col style="width:70px" />
+        <col style="width:100px" />
+        <col style="width:100px" />
+        <col style="width:200px" />
       </colgroup>
       <thead>
         <tr>
@@ -105,9 +122,12 @@
           <th>담당자</th>
           <th>상태</th>
           <th>지연</th>
+          <th>지연사유</th>
           <th title="난이도×영향범위 기준, PI팀 합의">가중치 ⓘ</th>
           <th>진척률(%)</th>
           <th>D365</th>
+          <th>CRM</th>
+          <th>WMS</th>
           <th>시작일</th>
           <th>종료일</th>
           <th>이슈 현황</th>
@@ -128,7 +148,7 @@
   </div>
 
   <footer class="note">
-    데이터는 Firebase Firestore(wbsExecTasks 컬렉션)에 저장되며, 진척률(%)·D365 체크 입력 시 모든 팀원의 화면에 실시간으로 반영됩니다.
+    데이터는 Firebase Firestore(wbsExecTasks 컬렉션)에 저장되며, 진척률(%)·D365/CRM/WMS 체크·지연사유 입력 시 모든 팀원의 화면에 실시간으로 반영됩니다.
     구조(가중치·담당자·일정)는 부품사업PI_프로젝트_WBS_진척률_경영진보고 개발용.xlsx 기준이며, 진척률과 D365 개발 필요 여부는 실적에 맞게 직접 입력해 주세요.
     입력창 위 "이름"을 적어두면 변경 이력에 누가 수정했는지 함께 남습니다.
   </footer>
